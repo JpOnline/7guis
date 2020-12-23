@@ -1,0 +1,35 @@
+;; shadow-cljs configuration
+{:source-paths ["src"]
+
+ :dependencies
+ [[devcards "0.2.6"]
+  [reagent "1.0.0"]
+  [cider/cider-nrepl "0.22.4"]]
+
+ :nrepl {:port 3333}
+
+ :dev-http {8080 "docs"}
+
+ :jvm-opts ["-Xmx512M"]
+
+ :builds
+ {:frontend
+  {:target :browser
+   :output-dir "docs/js"
+   :modules {:main {:init-fn seven-guis.app/init}}}
+  :components
+  {:target :esm
+   :output-dir "docs/webcomponents-js"
+   :modules
+   {:shared {}
+    :sg-counter {:init-fn seven-guis.sg-counter/register-component!
+            :depends-on #{:shared}}
+    }}
+  :devcards
+  {:target :browser
+   :output-dir "docs/devcards/js"
+   :asset-path "devcards/js"
+   :modules {:main {:init-fn seven-guis.devcards/main}}
+   :dev {:compiler-options {:devcards true}}
+   }
+  }}

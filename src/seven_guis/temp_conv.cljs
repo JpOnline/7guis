@@ -3,7 +3,7 @@
     [reagent.core :as reagent]
     [seven-guis.util :as util]))
 
-(def temp-state (reagent/atom {:celsius 0
+(defonce temp-state (reagent/atom {:celsius 0
                                :fahrenheit 32}))
 
 (defn celsius->fahrenheit [c]

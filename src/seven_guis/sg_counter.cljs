@@ -3,7 +3,7 @@
     [reagent.core :as reagent]
     [seven-guis.util :as util]))
 
-(def counter-state (reagent/atom 0))
+(defonce counter-state (reagent/atom 0))
 
 (defn counter []
   [:<>

@@ -8,6 +8,7 @@
     [seven-guis.sg-counter]
     [seven-guis.temp-conv]
     [seven-guis.flight-booker]
+    [seven-guis.sg-timer]
     ))
 
 (defcard-rg counter
@@ -18,5 +19,8 @@
 
 (defcard-rg book-flight
   [:flight-booker])
+
+(defcard-rg book-flight
+  [:sg-timer])
 
 (defn ^:export main [] (devcards.core/start-devcard-ui!))

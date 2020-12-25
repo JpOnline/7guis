@@ -20,7 +20,7 @@
 (defcard-rg book-flight
   [:flight-booker])
 
-(defcard-rg book-flight
+(defcard-rg timer
   [:sg-timer])
 
 (defn ^:export main [] (devcards.core/start-devcard-ui!))

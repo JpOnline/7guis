@@ -5,7 +5,7 @@
     [reagent.core :as reagent]
     [seven-guis.util :as util]))
 
-(defonce component-state (reagent/atom {:domain [{:id 0 :name "Jp" :surname "Soares"}]
+(defonce component-state (reagent/atom {:domain {0 {:id 0 :name "Jp" :surname "Soares"}}
                                         :ui {:filter-prefix ""
                                              :selected-id -1
                                              :name ""
@@ -14,30 +14,43 @@
 (defn filtered-names [{names :domain {:keys [filter-prefix]} :ui}]
   (filter #(string/starts-with? (string/lower-case (:surname %))
                                 (string/lower-case filter-prefix))
-          names))
+          (vals names)))
 
 (defn create-name [{{:keys [name surname]} :ui names :domain :as state}]
-  (let [next-id (inc (:id (last names)))
+  (let [next-id (inc (apply max (keys names)))
         t-sur (string/trim surname)
         t-name (string/trim name)]
     (if (or (empty? t-sur) (empty? t-name))
       state
       (-> state
-        (update :domain conj {:id next-id :name t-name :surname t-sur})
+        (update :domain assoc next-id {:id next-id :name t-name :surname t-sur})
         (update :ui assoc :name "")
         (update :ui assoc :surname "")))))
 
-(defn find-pred
-  "Returns the first element of coll that satisfy the predicate f."
-  [f coll]
-  (some #(if (f %) %) coll))
+(defn update-name [{{:keys [name surname selected-id]} :ui names :domain :as state}]
+  (let [t-sur (string/trim surname)
+        t-name (string/trim name)]
+    (if (or (empty? t-sur) (empty? t-name))
+      state
+      (-> state
+        (update-in [:domain selected-id] assoc :name t-name)
+        (update-in [:domain selected-id] assoc :surname t-sur)))))
 
-(defn select-name [{names :domain :as state} selected-id]
-  (let [{:keys [name surname]} (find-pred #(= (:id %) (js/parseInt selected-id)) names)]
+(defn delete-name [{{:keys [selected-id]} :ui :as state}]
+  (-> state
+      (update :domain dissoc selected-id)
+      (update :ui dissoc :selected-id)))
+
+(defn select-name [{names :domain :as state} selected-id-str]
+  (let [selected-id (js/parseInt selected-id-str)
+        {:keys [name surname]} (get names selected-id {:name "" :surname ""})]
     (-> state
-      (assoc :selected-id selected-id)
+      (assoc-in [:ui :selected-id] selected-id)
       (assoc-in [:ui :name] name)
       (assoc-in [:ui :surname] surname))))
+
+(defn someone-is-selected? [{:keys [selected-id]}]
+  (>= selected-id 0))
 
 (defn component-style []
   [:style
@@ -96,10 +109,8 @@
                         update :ui
                         assoc :filter-prefix  (-> % .-target .-value))}]
     [:select {:multiple true
-              :onChange #(do
-                           (js/console.log %)
-                           (swap! component-state select-name (-> % .-target .-value))
-                           (avoid-multiple-selection %))}
+              :onChange #(do (swap! component-state select-name (-> % .-target .-value))
+                             (avoid-multiple-selection %))}
      (for [{:keys [name surname id]} (filtered-names @component-state)]
        ^{:key id}
        [:option {:value id} (str surname", "name)])]
@@ -121,8 +132,14 @@
      [:button
       {:onClick #(swap! component-state create-name)}
       "Create"]
-     [:button "Update"]
-     [:button "Delete"]]]])
+     [:button
+      {:onClick #(swap! component-state update-name)
+       :disabled (not (someone-is-selected? (:ui @component-state)))}
+      "Update"]
+     [:button
+      {:onClick #(swap! component-state delete-name)
+       :disabled (not (someone-is-selected? (:ui @component-state)))}
+      "Delete"]]]])
 
 (defn ^:dev/after-load register-component! []
   (util/define-custom-element! {:element-name "sg-crud"
@@ -131,38 +148,77 @@
 (register-component!)
 
 (comment
-  (swap! component-state update :domain conj {:name "Jp" :surname "another"})
-
   (require '[cljs.test :refer [is testing]])
-  (testing
-    (is (= (-> {:domain [{:name "Jp" :surname "Soares"}]
+  (testing "All tests"
+    (testing
+    (is (= (-> {:domain {1 {:id 1 :name "Jp" :surname "Soares"}}
                 :ui {:filter-prefix ""
                      :name "name"
                      :surname "another"}}
                (create-name))
-           {:domain [{:name "Jp" :surname "Soares"}
-                     {:name "name" :surname "another"}]
+           {:domain {1 {:id 1 :name "Jp" :surname "Soares"}
+                     2 {:id 2 :name "name" :surname "another"}}
                 :ui {:filter-prefix ""
                      :name ""
                      :surname ""}}))
-    (is (= (-> {:domain [{:name "Jp" :surname "Soares"}]
+    (is (= (-> {:domain {1 {:id 1 :name "Jp" :surname "Soares"}}
                 :ui {:filter-prefix ""
                      :name " with "
                      :surname " spaces "}}
                (create-name))
-           {:domain [{:name "Jp" :surname "Soares"}
-                     {:name "with" :surname "spaces"}]
+           {:domain {1 {:id 1 :name "Jp" :surname "Soares"}
+                     2 {:id 2 :name "with" :surname "spaces"}}
                 :ui {:filter-prefix ""
                      :name ""
                      :surname ""}}))
-    (is (= (-> {:domain [{:name "Jp" :surname "Soares"}]
+    (is (= (-> {:domain {1 {:id 1 :name "Jp" :surname "Soares"}}
                 :ui {:filter-prefix ""
                      :name "no surname"
                      :surname ""}}
                (create-name))
-           {:domain [{:name "Jp" :surname "Soares"}]
+           {:domain {1 {:id 1 :name "Jp" :surname "Soares"}}
                 :ui {:filter-prefix ""
                      :name "no surname"
-                     :surname ""}}))
-    )
+                     :surname ""}})))
+  (testing
+    (is (= (-> {:domain {1 {:id 1 :name "Jp" :surname "Soares"}
+                         2 {:id 2 :name "Paulo" :surname "Souza"}}
+                :ui {:filter-prefix "soa"
+                     :selected-id nil
+                     :name ""
+                     :surname ""}}
+               (select-name "1"))
+           {:domain {1 {:id 1 :name "Jp" :surname "Soares"}
+                     2 {:id 2 :name "Paulo" :surname "Souza"}}
+            :ui {:filter-prefix "soa"
+                 :selected-id 1
+                 :name "Jp"
+                 :surname "Soares"}})))
+  (testing
+    (is (= (-> {:domain {1 {:id 1 :name "Jp" :surname "Soares"}
+                         2 {:id 2 :name "Paulo" :surname "Souza"}}
+                :ui {:filter-prefix "soa"
+                     :name ""
+                     :surname ""}}
+               (filtered-names))
+           '({:id 1 :name "Jp" :surname "Soares"}))))
+  (testing
+    (is (= (-> {:domain {0 {:id 0 :name "Jp" :surname "Soares"}}
+                :ui {:filter-prefix ""
+                     :selected-id 0
+                     :name "João Paulo"
+                     :surname "Soares"}}
+               (update-name))
+           {:domain {0 {:id 0 :name "João Paulo" :surname "Soares"}}
+            :ui {:filter-prefix ""
+                 :selected-id 0
+                 :name "João Paulo"
+                 :surname "Soares"}})))
+  (testing
+    (is (= (-> {:domain {1 {:id 1 :name "Jp" :surname "Soares"}
+                         2 {:id 2 :name "Paulo" :surname "Souza"}}
+                :ui {:selected-id 1}}
+               (delete-name))
+           {:domain {2 {:id 2 :name "Paulo" :surname "Souza"}}
+            :ui {}}))))
   )

@@ -1,6 +1,5 @@
 (ns seven-guis.sg-crud
   (:require
-[cljs.test :refer [is testing]]
     [clojure.string :as string]
     [reagent.core :as reagent]
     [seven-guis.util :as util]))

@@ -11,7 +11,7 @@
           new-el [(-> js/document (.createElement name))]]
     (-> to-reload (.replaceWith new-el))))
 
-(defn define-custom-element! [{:keys [element-name view-component props-to-observe props-to-reflect]}]
+(defn define-custom-element! [{:keys [element-name view-component props-to-observe props-to-reflect this]}]
   (swap! already-defined-components #(assoc % element-name view-component))
   (if (js/window.customElements.get element-name)
     (reload-existent-custom-elements! element-name)
@@ -36,7 +36,8 @@
                                 (into {:connectedCallback
                                        #js {:configurable true
                                             :value (fn []
-                                                     (this-as this
+                                                     (this-as t
+                                                              (when this (reset! this t))
                                                               (js/console.log "Conectado")))}
                                        :attributeChangedCallback
                                        #js {:value (fn [attr-name old-value new-value]

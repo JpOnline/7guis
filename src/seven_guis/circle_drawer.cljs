@@ -7,8 +7,8 @@
 (defonce component-ref (atom nil))
 (defonce component-state (reagent/atom {:circles {}
                                         :selected-circle-id nil
-                                        :undo-states []
-                                        :redo-states []}))
+                                        :undo-states '()
+                                        :redo-states '()}))
 (defonce ui (reagent/atom {:popup {:x 0 :y 0}
                            :context-menu {:visibility "hidden"}
                            :diameter-dialog {:visibility "hidden"}}))
@@ -54,7 +54,7 @@
     (is (= 5 (points-distance [1 1] [4 5])))
     (is (= 13 (points-distance [1 1] [6 13])))))
 
-(defn canvas-mouse-event [evt f]
+(defn position-relative-to-canvas [evt]
   (when-let [canvas (some-> ^js @component-ref .-shadow (.querySelector "canvas"))]
     (let [ctx (.getContext canvas "2d")
           bound (.getBoundingClientRect canvas)
@@ -62,22 +62,27 @@
           scaleY (/ (.-height canvas) (.-height bound))
           x (* (- (.-clientX evt) (.-left bound)) scaleX)
           y (* (- (.-clientY evt) (.-top bound)) scaleY)]
-      (f x y))))
+      [x y])))
+
+(defn register-undo [{:keys [circles] :as state} old-circles]
+  (if (= circles old-circles)
+    state
+    (-> state
+        (update :undo-states conj old-circles)
+        (assoc :redo-states '()))))
 
 (defn on-mouse-move [evt]
-  (canvas-mouse-event
-    evt
-    (fn [x y]
-      (let [distance-from-mouse (fn [{cx :x cy :y}] (points-distance [x y] [cx cy]))
-            {:keys [id radius] :as nearest} (first (sort-by distance-from-mouse (vals (:circles @component-state))))]
-        (when (< (distance-from-mouse nearest) radius)
-          (swap! component-state assoc :selected-circle-id id))))))
+  (let [[x y] (position-relative-to-canvas evt)
+        distance-from-mouse (fn [{cx :x cy :y}] (points-distance [x y] [cx cy]))
+        {:keys [id radius] :as nearest} (first (sort-by distance-from-mouse (vals (:circles @component-state))))]
+    (when (and x (< (distance-from-mouse nearest) radius))
+      (swap! component-state assoc :selected-circle-id id))))
 
-(defn on-canvas-click [evt]
-  (canvas-mouse-event
-    evt
-    (fn [x y]
-      (swap! component-state create-circle x y 10))) )
+(defn on-canvas-click [{:keys [circles] :as state} evt]
+  (when-let [[x y] (position-relative-to-canvas evt)]
+    (-> state
+        (create-circle x y 10)
+        (register-undo circles))))
 
 (defn open-context-menu [ui-state evt]
   (.preventDefault evt)
@@ -105,15 +110,27 @@
      (update-in state [:circles id] assoc :radius new-radius)))
 
 (defn diameter-dialog []
-  (when (= "visible" (-> @ui :diameter-dialog :visibility))
-    (let [selected-id (:selected-circle-id @component-state)
-          {:keys [x y radius]} (-> @component-state :circles (get selected-id))]
+  (let [selected-id (:selected-circle-id @component-state)
+        {:keys [x y radius]} (-> @component-state :circles (get selected-id))]
+    (when (and x (= "visible" (-> @ui :diameter-dialog :visibility)))
       [:div#diameter-dialog.popup
        [:p "Adjust diameter of circle at ("(.toFixed x)", "(.toFixed y)")"]
        [:input#range
         {:type "range"
          :value (-> @component-state :circles (get selected-id) :radius)
          :onChange #(swap! component-state update-radius (-> % .-target .-value js/parseInt))}]])))
+
+(defn apply-undo [{actual-state :circles [restored-circles & _] :undo-states :as state}]
+  (-> state
+      (update :redo-states conj actual-state)
+      (assoc :circles restored-circles)
+      (update :undo-states rest)))
+
+(defn apply-redo [{actual-state :circles [restored-circles & _] :redo-states :as state}]
+  (-> state
+      (update :undo-states conj actual-state)
+      (assoc :circles restored-circles)
+      (update :redo-states rest)))
 
 (defn component []
   [:<>
@@ -162,16 +179,38 @@
       height: 400px;
       border: 1px solid lightgray;
     }
+    .flex-evenly {
+      display: flex;
+      justify-content: space-evenly;
+      padding: 10px;
+    }
+    button {
+      font-size: large;
+      padding: 5px 15px;
+    }
     ")]
+   [:div.flex-evenly
+    [:button {:disabled (empty? (:undo-states @component-state))
+              :onClick #(swap! component-state apply-undo)} "Undo"]
+    [:button {:disabled (empty? (:redo-states @component-state))
+              :onClick #(swap! component-state apply-redo)} "Redo"]]
    [:div#container
     [:canvas
      {:onContextMenu #(swap! ui open-context-menu %)
       :onMouseMove on-mouse-move
-      :onClick on-canvas-click}]
-    [:div.dismiss-popup-layer {:onClick #(swap! ui dismiss-popup %)
+      :onClick #(swap! component-state on-canvas-click %)}]
+    [:div.dismiss-popup-layer {:onClick #(do
+                                           (swap! component-state (fn [s] (register-undo s (:old-circles s))))
+                                           (swap! ui dismiss-popup %))
                                :onContextMenu #(swap! ui open-context-menu %)}]
-    [:div#context-menu.popup {:onClick #(swap! ui open-diameter-dialog %)} "Adjust diameter.."]
-    [diameter-dialog]]])
+    [:div#context-menu.popup {:onClick #(do
+                                          (swap! component-state (fn [s] (assoc s :old-circles (:circles s))))
+                                          (swap! ui open-diameter-dialog %))} "Adjust diameter.."]
+    [diameter-dialog]
+    [:p (str (map #(map (fn [[k {:keys [radius id]}]] {radius id}) %) (:undo-states @component-state)))]
+    [:p (str @component-state)]
+    [:p (str (map #(map (fn [[k {:keys [radius id]}]] {radius id}) %) (:redo-states @component-state)))]
+    ]])
 
 (defn ^:dev/after-load register-component! []
   (util/define-custom-element! {:element-name "circle-drawer"

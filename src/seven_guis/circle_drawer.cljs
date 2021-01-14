@@ -206,11 +206,7 @@
     [:div#context-menu.popup {:onClick #(do
                                           (swap! component-state (fn [s] (assoc s :old-circles (:circles s))))
                                           (swap! ui open-diameter-dialog %))} "Adjust diameter.."]
-    [diameter-dialog]
-    [:p (str (map #(map (fn [[k {:keys [radius id]}]] {radius id}) %) (:undo-states @component-state)))]
-    [:p (str @component-state)]
-    [:p (str (map #(map (fn [[k {:keys [radius id]}]] {radius id}) %) (:redo-states @component-state)))]
-    ]])
+    [diameter-dialog]]])
 
 (defn ^:dev/after-load register-component! []
   (util/define-custom-element! {:element-name "circle-drawer"

@@ -11,7 +11,7 @@
     [seven-guis.sg-timer]
     [seven-guis.sg-crud]
     [seven-guis.circle-drawer]
-    ))
+    [seven-guis.sg-cells]))
 
 (defcard-rg counter
   [:sg-counter]) ;; Uses web-component as html tag.
@@ -30,5 +30,8 @@
 
 (defcard-rg circle-drawer
   [:circle-drawer])
+
+(defcard-rg cells
+  [:sg-cells])
 
 (defn ^:export main [] (devcards.core/start-devcard-ui!))

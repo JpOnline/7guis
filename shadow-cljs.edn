@@ -32,4 +32,9 @@
    :modules {:main {:init-fn seven-guis.devcards/main}}
    :dev {:compiler-options {:devcards true}}
    }
+  :cells-evaluation
+  {:target :bootstrap
+   :output-dir "docs/cells-evaluation"
+   :entries [cljs.js]
+   :exclude #{cljs.js}}
   }}

@@ -9,22 +9,22 @@
 
 (defonce component-state (reagent/atom {}))
 
-(defonce compile-eval-state (cljs.js/empty-state))
-
 (def num-columns 5)
 (def num-rows 7)
 (def cell-regex #"[a-zA-Z]\d{1,2}")
 
+(defonce compile-eval-state (cljs.js/empty-state))
+
 (defn evaluate [s callback]
-  (cljs.js/eval-str compile-eval-state
-        s
-        nil
-        {:eval cljs.js/js-eval
-         :load (partial shadow.bootstrap/load compile-eval-state)
-         :context :expr}
-        (fn [result] (do
-                       (js/console.log result)
-                       (callback result)))))
+  (cljs.js/eval-str
+    compile-eval-state
+    s
+    nil
+    {:eval cljs.js/js-eval
+     :load (partial shadow.bootstrap/load compile-eval-state)
+     :context :expr}
+    (fn [result] (do (js/console.log result)
+                     (callback result)))))
 
 (defn evaluate-cell! [[column row]]
   (let [formula? #(when % (clojure.string/starts-with? % "="))
@@ -43,18 +43,22 @@
         set-value #(-> %1
                        (assoc-in [:domain column row :value] %2)
                        (update-in [:domain column row] dissoc :error))
-        set-and-propagate (fn [{:keys [value error]}]
+        set-and-propagate! (fn [{:keys [value error]}]
                             (if error
                               (swap! component-state set-error ^js (.-message ^js (.-cause error)))
                               (swap! component-state set-value value))
                             (dorun (map evaluate-cell! dependants)))]
     (if (formula? string)
-      (evaluate (parse-formula string) set-and-propagate)
-      (set-and-propagate {:value string}))))
+      (evaluate (parse-formula string) set-and-propagate!)
+      (set-and-propagate! {:value string}))))
 
-(defn cell-references [formula]
-  (re-seq cell-regex formula)
-  )
+(defonce intercept-undeclared-var-error
+  (let [error-log js/console.error]
+    (set! js/console.error (fn [& args]
+                             (when-let [[_ undeclared] (re-find #"WARNING: Use of undeclared Var cljs.user/(\S+)" (first args))]
+                               (js/alert (str "Were you trying to use "undeclared" as a string?\nIf so, try surroding it with double quotes, like \""undeclared"\".")))
+                             (apply error-log args)))))
+
 
 (defn unsubscribe [state [dependant-column dependant-row]]
   (let [old-formula (get-in state [:domain dependant-column dependant-row :string] "")
@@ -99,7 +103,7 @@
         :title (when error error)
         :onClick #(swap! component-state assoc-in [:ui :selected] #{[column row]})
         :onDoubleClick #(swap! component-state assoc-in [:ui :editing] [column row])}
-       value])))
+       (str value)])))
 
 (defn component-style []
   [:style
@@ -134,18 +138,13 @@
                :string #_(str col row) (get-in @component-state [:domain col row :string])
                :value (get-in @component-state [:domain col row :value])
                :error (get-in @component-state [:domain col row :error])}]
-        #_[:input {:onChange #(swap! component-state assoc-in [:domain col row] (-> % .-target .-value))}]
-        ]
-       ))]
+        ]))]
    [cell {:column :A :row "1" :value (get-in @component-state [:domain :A 1])}]
    [cell {:column :B :row "1" :value (get-in @component-state [:domain :B 1])}]
    [:input {:onChange #(swap! component-state assoc-in [:domain :A 0 :dependants] [[:B 0]]) #_(swap! component-state assoc-in [:domain :A 0 :value] (-> % .-target .-value))}]
    [:br]
-   #_[:input {:onChange #(swap! component-state assoc-in [:domain :B 1 :value] (str (cell-references (-> % .-target .-value))))}]
-   ;; [:input {:onChange #(reset! b1 (-> % .-target .-value))}]
-   [:br] [:p "Selected " (str @component-state )]
-   ]
-  )
+   [:br] [:p "State " (str @component-state )]
+   ])
 
 (defn ^:dev/after-load register-component! []
   (shadow.bootstrap/init compile-eval-state {:path "/cells-evaluation"} prn)

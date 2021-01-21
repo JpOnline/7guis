@@ -1,6 +1,5 @@
 (ns seven-guis.sg-cells
   (:require
-[cljs.test :refer [deftest testing is run-tests]]
     [clojure.set :as set]
     [clojure.string :as string]
     [reagent.core :as reagent]
@@ -26,11 +25,26 @@
     (fn [result] (do (js/console.log result)
                      (callback result)))))
 
+(defn replace-cell-range [formula]
+  (let [cell-regex-string (subs (str cell-regex) 1 (dec (count (str cell-regex))))
+        row-fn #(-> % (subs 1) js/parseInt)
+        col-fn #(-> % first string/upper-case .charCodeAt)
+        replace-fn (fn [[_ init final]]
+                     (-> (for [n (range (row-fn init) (inc (row-fn final)))
+                               c (range (col-fn init) (inc (col-fn final)))]
+                           (str (char c) n))
+                         (->> (string/join " "))
+                         (as-> $ (str "[" $ "]"))))]
+    (string/replace formula
+                    (re-pattern (str "("cell-regex-string"):("cell-regex-string")"))
+                    replace-fn)))
+
 (defn evaluate-cell! [[column row]]
   (let [formula? #(when % (clojure.string/starts-with? % "="))
         parse-formula (fn [formula]
                         (-> formula
                             (subs 1)
+                            replace-cell-range
                             (string/replace cell-regex
                                             #(get-in @component-state [:domain
                                                                        (-> % first string/upper-case keyword)
@@ -62,7 +76,7 @@
 
 (defn unsubscribe [state [dependant-column dependant-row]]
   (let [old-formula (get-in state [:domain dependant-column dependant-row :string] "")
-        cell-references (re-seq cell-regex old-formula)
+        cell-references (some->> old-formula replace-cell-range (re-seq cell-regex))
         referenced-column #(-> % first string/upper-case keyword)
         referenced-row #(-> % (subs 1) js/parseInt)]
     (reduce #(update-in %1
@@ -73,7 +87,7 @@
 
 (defn subscribe [state [dependant-column dependant-row]]
   (let [new-formula (get-in state [:domain dependant-column dependant-row :string] "")
-        cell-references (re-seq cell-regex new-formula)
+        cell-references (some->> new-formula replace-cell-range (re-seq cell-regex))
         referenced-column #(-> % first string/upper-case keyword)
         referenced-row #(-> % (subs 1) js/parseInt)]
     (reduce #(update-in %1
@@ -135,15 +149,15 @@
         [cell {:column col :row row
                :selected? ((get-in @component-state [:ui :selected] #{}) [col row])
                :editing? (= (get-in @component-state [:ui :editing] []) [col row])
-               :string #_(str col row) (get-in @component-state [:domain col row :string])
+               :string (get-in @component-state [:domain col row :string])
                :value (get-in @component-state [:domain col row :value])
                :error (get-in @component-state [:domain col row :error])}]
         ]))]
    [cell {:column :A :row "1" :value (get-in @component-state [:domain :A 1])}]
    [cell {:column :B :row "1" :value (get-in @component-state [:domain :B 1])}]
-   [:input {:onChange #(swap! component-state assoc-in [:domain :A 0 :dependants] [[:B 0]]) #_(swap! component-state assoc-in [:domain :A 0 :value] (-> % .-target .-value))}]
+   [:input {:onChange #(swap! component-state assoc-in [:domain :A 0 :value] (-> % .-target .-value))}]
    [:br]
-   [:br] [:p "State " (str @component-state )]
+   [:br] [:pre "State " (with-out-str (cljs.pprint/pprint @component-state))]
    ])
 
 (defn ^:dev/after-load register-component! []

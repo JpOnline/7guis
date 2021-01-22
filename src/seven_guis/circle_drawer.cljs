@@ -1,6 +1,5 @@
 (ns seven-guis.circle-drawer
   (:require
-[cljs.test :refer [deftest testing is run-tests]]
     [reagent.core :as reagent]
     [seven-guis.util :as util]))
 
@@ -36,23 +35,9 @@
   (let [next-id (inc (apply max (conj (keys circles) -1)))]
     (update state :circles assoc next-id {:x x :y y :radius radius :id next-id})))
 
-(deftest create-circle-test
-  (testing
-    (is (= (-> {:circles {}}
-               (create-circle 0 0 10)
-               :circles)
-         {0 {:x 0 :y 0 :radius 10 :id 0}}))
-    ))
-
 (defn points-distance [[x1 y1] [x2 y2]]
   (let [square #(* % %)]
     (js/Math.sqrt (+ (square (- x2 x1)) (square (- y2 y1))))))
-
-(deftest points-distance-test
-  (testing
-    (is (= 5 (points-distance [0 0] [3 4])))
-    (is (= 5 (points-distance [1 1] [4 5])))
-    (is (= 13 (points-distance [1 1] [6 13])))))
 
 (defn position-relative-to-canvas [evt]
   (when-let [canvas (some-> ^js @component-ref .-shadow (.querySelector "canvas"))]
@@ -215,3 +200,18 @@
 
 (register-component!)
 
+(comment
+  (deftest create-circle-test
+    (testing
+      (is (= (-> {:circles {}}
+                 (create-circle 0 0 10)
+                 :circles)
+           {0 {:x 0 :y 0 :radius 10 :id 0}}))
+      ))
+
+  (deftest points-distance-test
+    (testing
+      (is (= 5 (points-distance [0 0] [3 4])))
+      (is (= 5 (points-distance [1 1] [4 5])))
+      (is (= 13 (points-distance [1 1] [6 13])))))
+  )

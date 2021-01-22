@@ -1,6 +1,5 @@
 (ns seven-guis.sg-cells
   (:require
-    [clojure.set :as set]
     [clojure.string :as string]
     [reagent.core :as reagent]
     [seven-guis.util :as util]
@@ -8,8 +7,8 @@
 
 (defonce component-state (reagent/atom {}))
 
-(def num-columns 5)
-(def num-rows 7)
+(def num-columns 26)
+(def num-rows 100)
 (def cell-regex #"[a-zA-Z]\d{1,2}")
 
 (defonce compile-eval-state (cljs.js/empty-state))
@@ -25,7 +24,9 @@
     (fn [result] (do (js/console.log result)
                      (callback result)))))
 
-(defn replace-cell-range [formula]
+(defn replace-cell-range
+  "Transform a formula like (apply + a0:c2) in (apply + [A0 B0 C0 A1 B1 C1 A2 B2 C2])"
+  [formula]
   (let [cell-regex-string (subs (str cell-regex) 1 (dec (count (str cell-regex))))
         row-fn #(-> % (subs 1) js/parseInt)
         col-fn #(-> % first string/upper-case .charCodeAt)
@@ -73,7 +74,6 @@
                                (js/alert (str "Were you trying to use "undeclared" as a string?\nIf so, try surroding it with double quotes, like \""undeclared"\".")))
                              (apply error-log args)))))
 
-
 (defn unsubscribe [state [dependant-column dependant-row]]
   (let [old-formula (get-in state [:domain dependant-column dependant-row :string] "")
         cell-references (some->> old-formula replace-cell-range (re-seq cell-regex))
@@ -98,7 +98,6 @@
             cell-references)))
 
 (defn cell [{:keys [column row string selected? editing? error value]}]
-  (js/console.log (str "Updated "column row" with "string))
   (let [formula? #(when % (clojure.string/starts-with? % "="))
         onInputBlur #(-> %1
                          (update :ui dissoc :editing)
@@ -125,6 +124,8 @@
    .container {
      display: grid;
      grid: auto-flow / 30px repeat("num-columns", 100px);
+     overflow: auto;
+     height: 500px;
    }
    span {
      padding: 1px 5px;
@@ -157,9 +158,7 @@
                :editing? (= (get-in @component-state [:ui :editing] []) [col row])
                :string (get-in @component-state [:domain col row :string])
                :value (get-in @component-state [:domain col row :value])
-               :error (get-in @component-state [:domain col row :error])}]]))]
-   [:br] [:pre "State " (with-out-str (cljs.pprint/pprint @component-state))]
-   ])
+               :error (get-in @component-state [:domain col row :error])}]]))]])
 
 (defn ^:dev/after-load register-component! []
   (shadow.bootstrap/init compile-eval-state {:path "/cells-evaluation"} prn)

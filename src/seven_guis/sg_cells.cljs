@@ -124,7 +124,7 @@
    (str "
    .container {
      display: grid;
-     grid: auto-flow / repeat("num-columns", 100px);
+     grid: auto-flow / 30px repeat("num-columns", 100px);
    }
    span {
      padding: 1px 5px;
@@ -134,29 +134,30 @@
    span.selected {
      border: 1px solid blue;
    }
+   span.header {
+     text-align: center;
+     background-color: #f8f9fa;
+   }
    ")])
 
 (defn component []
   [:<>
    [component-style]
    [:div.container
+    [:span.header]
+    (for [c (range 65 (+ 65 num-columns))] [:span.header (char c)])
     (doall
      (for [row (range num-rows)
-           col (map (comp keyword char) (range 65 (+ 65 num-columns)))
-           ]
+           col (map (comp keyword char) (range 65 (+ 65 num-columns)))]
        ^{:key (str col row)}
        [:<>
+        (when (= :A col) [:span.header row])
         [cell {:column col :row row
                :selected? ((get-in @component-state [:ui :selected] #{}) [col row])
                :editing? (= (get-in @component-state [:ui :editing] []) [col row])
                :string (get-in @component-state [:domain col row :string])
                :value (get-in @component-state [:domain col row :value])
-               :error (get-in @component-state [:domain col row :error])}]
-        ]))]
-   [cell {:column :A :row "1" :value (get-in @component-state [:domain :A 1])}]
-   [cell {:column :B :row "1" :value (get-in @component-state [:domain :B 1])}]
-   [:input {:onChange #(swap! component-state assoc-in [:domain :A 0 :value] (-> % .-target .-value))}]
-   [:br]
+               :error (get-in @component-state [:domain col row :error])}]]))]
    [:br] [:pre "State " (with-out-str (cljs.pprint/pprint @component-state))]
    ])
 

@@ -32,6 +32,9 @@
   [:circle-drawer])
 
 (defcard-rg cells
-  [:sg-cells])
+  [:<>
+   [:p "This is a spreadsheet that evaluate Clojure forms, try writing " [:b "=(+ b0 c0)"] " in " [:b "A0"] " and numbers in " [:b "B0"] " and " [:b "C0"] "."]
+   [:p "If you want to represent strings you must surround them in double quotes, e.g. \"a string\"."]
+   [:sg-cells]])
 
 (defn ^:export main [] (devcards.core/start-devcard-ui!))

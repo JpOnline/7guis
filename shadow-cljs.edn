@@ -13,28 +13,14 @@
  :jvm-opts ["-Xmx512M"]
 
  :builds
- {:frontend
-  {:target :browser
-   :output-dir "docs/js"
-   :modules {:main {:init-fn seven-guis.app/init}}}
-  :components
-  {:target :esm
-   :output-dir "docs/webcomponents-js"
-   :modules
-   {:shared {}
-    :sg-counter {:init-fn seven-guis.sg-counter/register-component!
-            :depends-on #{:shared}}
-    }}
-  :devcards
+ {:devcards
   {:target :browser
    :output-dir "docs/devcards/js"
    :asset-path "devcards/js"
    :modules {:main {:init-fn seven-guis.devcards/main}}
-   :dev {:compiler-options {:devcards true}}
-   }
+   :dev {:compiler-options {:devcards true}}}
   :cells-evaluation
   {:target :bootstrap
    :output-dir "docs/cells-evaluation"
    :entries [cljs.js]
-   :exclude #{cljs.js}}
-  }}
+   :exclude #{cljs.js}}}}

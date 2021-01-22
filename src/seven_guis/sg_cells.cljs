@@ -146,7 +146,9 @@
    [component-style]
    [:div.container
     [:span.header]
-    (for [c (range 65 (+ 65 num-columns))] [:span.header (char c)])
+    (for [c (range 65 (+ 65 num-columns))]
+      ^{:key (str "header " (char c))}
+      [:span.header (char c)])
     (doall
      (for [row (range num-rows)
            col (map (comp keyword char) (range 65 (+ 65 num-columns)))]
@@ -161,7 +163,7 @@
                :error (get-in @component-state [:domain col row :error])}]]))]])
 
 (defn ^:dev/after-load register-component! []
-  (shadow.bootstrap/init compile-eval-state {:path "/cells-evaluation"} prn)
+  (shadow.bootstrap/init compile-eval-state {:path "/7guis/cells-evaluation"} prn)
   (util/define-custom-element! {:element-name "sg-cells"
                                 :view-component component}))
 
